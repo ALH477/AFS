@@ -264,4 +264,4 @@ Copyright (c) 2025 DeMoD LLC
 
 ## Support
 
-Open issues at: github.com/yourusername/advanced-file-splitter
+Open issues at: github.com/ALH477/advanced-file-splitter
