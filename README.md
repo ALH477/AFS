@@ -19,7 +19,7 @@ advanced-file-splitter verify video.mp4
 
 ### Nix Flakes
 ```bash
-nix profile install github:yourusername/advanced-file-splitter
+nix profile install github:ALH477/AFS
 ```
 
 ### Manual
