@@ -6,13 +6,13 @@ Split large files into manageable parts with cryptographic verification and bit-
 
 ```bash
 # Split file into 24 parts (default)
-advanced-file-splitter split video.mp4
+afs split video.mp4
 
 # Merge parts back together
-advanced-file-splitter merge video.mp4_parts
+afs merge video.mp4_parts
 
 # Test integrity
-advanced-file-splitter verify video.mp4
+afs verify video.mp4
 ```
 
 ## Installation
@@ -24,8 +24,8 @@ nix profile install github:ALH477/AFS
 
 ### Manual
 ```bash
-chmod +x advanced-file-splitter
-sudo cp advanced-file-splitter /usr/local/bin/
+chmod +x afs
+sudo cp afs /usr/local/bin/
 ```
 
 ## Usage Guide
@@ -33,7 +33,7 @@ sudo cp advanced-file-splitter /usr/local/bin/
 ### Split Files
 
 ```bash
-advanced-file-splitter split [OPTIONS] FILE
+afs split [OPTIONS] FILE
 ```
 
 **Common Options:**
@@ -46,22 +46,22 @@ advanced-file-splitter split [OPTIONS] FILE
 **Examples:**
 ```bash
 # Split into 12 equal parts
-advanced-file-splitter split database.sql -n 12
+afs split database.sql -n 12
 
 # Split with max 50MB per part
-advanced-file-splitter split video.mp4 -s 50
+afs split video.mp4 -s 50
 
 # Custom output directory
-advanced-file-splitter split archive.tar.gz -o /backup/parts
+afs split archive.tar.gz -o /backup/parts
 
 # AI/script usage with JSON output
-advanced-file-splitter split data.zip -n 10 --json -q
+afs split data.zip -n 10 --json -q
 ```
 
 ### Merge Parts
 
 ```bash
-advanced-file-splitter merge [OPTIONS] PARTS_DIR
+afs merge [OPTIONS] PARTS_DIR
 ```
 
 **Options:**
@@ -72,19 +72,19 @@ advanced-file-splitter merge [OPTIONS] PARTS_DIR
 **Examples:**
 ```bash
 # Auto-verify from manifest
-advanced-file-splitter merge database.sql_parts
+afs merge database.sql_parts
 
 # Specify output file
-advanced-file-splitter merge backup_parts -o restored.zip
+afs merge backup_parts -o restored.zip
 
 # Script usage
-advanced-file-splitter merge data_parts --json -q
+afs merge data_parts --json -q
 ```
 
 ### Verify Integrity
 
 ```bash
-advanced-file-splitter verify [OPTIONS] FILE
+afs verify [OPTIONS] FILE
 ```
 
 Tests split-merge cycle without keeping intermediate files.
@@ -94,61 +94,61 @@ Tests split-merge cycle without keeping intermediate files.
 ### 1. Email Attachments (25MB limit)
 ```bash
 # Split for email
-advanced-file-splitter split presentation.pptx -s 24
+afs split presentation.pptx -s 24
 
 # Send all .part files + manifest.json as attachments
 # Recipient runs:
-advanced-file-splitter merge presentation.pptx_parts
+afs merge presentation.pptx_parts
 ```
 
 ### 2. Cloud Storage Upload
 ```bash
 # Split into 50MB chunks for reliable uploads
-advanced-file-splitter split backup-2025.tar.gz -s 50 -o cloud-sync/
+afs split backup-2025.tar.gz -s 50 -o cloud-sync/
 
 # Upload completes via cloud sync
 # On target system:
-advanced-file-splitter merge cloud-sync/ -o backup-2025.tar.gz
+afs merge cloud-sync/ -o backup-2025.tar.gz
 ```
 
 ### 3. Network Transfer
 ```bash
 # Source system
-advanced-file-splitter split firmware.bin -n 10 -o transfer/
+afs split firmware.bin -n 10 -o transfer/
 
 # Transfer parts individually
 rsync -avz transfer/ remote:/destination/
 
 # Destination system - auto-verifies
-advanced-file-splitter merge /destination/transfer/
+afs merge /destination/transfer/
 ```
 
 ### 4. Removable Media (DVD/USB)
 ```bash
 # Split for 25GB USB drives
-advanced-file-splitter split archive.tar -s 24000 -o usb-parts/
+afs split archive.tar -s 24000 -o usb-parts/
 
 # Copy to USB, later reconstruct
-advanced-file-splitter merge usb-parts/ -o archive.tar
+afs merge usb-parts/ -o archive.tar
 ```
 
 ### 5. Database Backups
 ```bash
 # Split database dump
-advanced-file-splitter split prod-db.sql -n 20 -o backups/
+afs split prod-db.sql -n 20 -o backups/
 
 # Verify before archival
-advanced-file-splitter merge backups/ -o test-restore.sql
+afs merge backups/ -o test-restore.sql
 diff prod-db.sql test-restore.sql && echo "Verified"
 ```
 
 ### 6. Software Distribution
 ```bash
 # Split for download
-advanced-file-splitter split software-v2.0.iso -s 100 -o downloads/
+afs split software-v2.0.iso -s 100 -o downloads/
 
 # Users download all parts then merge
-advanced-file-splitter merge downloads/
+afs merge downloads/
 ```
 
 ## AI Integration
