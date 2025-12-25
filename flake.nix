@@ -13,7 +13,7 @@
         python = pkgs.python3;
         
         version = "1.0.0";
-        pname = "advanced-file-splitter";
+        pname = "afs";
         
       in {
         packages = {
