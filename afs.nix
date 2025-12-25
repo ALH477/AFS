@@ -34,19 +34,6 @@
 #
 # Copyright © 2025 DeMoD LLC
 # All rights reserved.
-#
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation; either
-# version 3 of the License, or (at your option) any later version.
-#
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library. If not, see <https://www.gnu.org/licenses/>.
 
 import os
 import hashlib
@@ -55,6 +42,7 @@ import shutil
 import tempfile
 import json
 import sys
+import re
 from pathlib import Path
 from typing import List, Tuple, Optional
 
@@ -67,9 +55,15 @@ MAX_PART_SIZE_BYTES = DEFAULT_PART_SIZE_MB * 1024 * 1024
 class FileSplitter:
     """Enhanced file splitter with verification and manifest support."""
     
-    def __init__(self, hash_algorithm: str = 'sha256'):
+    def __init__(self, hash_algorithm: str = 'sha256', quiet: bool = False):
         self.hash_algorithm = hash_algorithm
         self.chunk_size = 4 * 1024 * 1024  # 4MB chunks for I/O
+        self.quiet = quiet
+    
+    def log(self, message: str) -> None:
+        """Print message unless in quiet mode."""
+        if not self.quiet:
+            print(message)
     
     def compute_hash(self, file_path: str) -> str:
         """Compute hash of a file using chunked reading."""
@@ -114,8 +108,8 @@ class FileSplitter:
                 f"exceeding limit of {max_part_size} bytes"
             )
         
-        print(f"Splitting {file_size:,} bytes into {actual_parts} parts...")
-        print(f"Base chunk size: {chunk_size:,} bytes, {remainder} parts get +1 byte")
+        self.log(f"Splitting {file_size:,} bytes into {actual_parts} parts...")
+        self.log(f"Base chunk size: {chunk_size:,} bytes, {remainder} parts get +1 byte")
         
         parts_info = []
         base_name = os.path.basename(input_file)
@@ -139,13 +133,13 @@ class FileSplitter:
                 parts_info.append((part_path, part_hash))
                 
                 if (i + 1) % 5 == 0 or i == actual_parts - 1:
-                    print(f"  Created part {i+1}/{actual_parts} ({bytes_written:,} bytes)")
+                    self.log(f"  Created part {i+1}/{actual_parts} ({bytes_written:,} bytes)")
         
         return parts_info
     
     def merge_files(self, parts: List[str], output_file: str) -> None:
         """Merge parts into single file using chunked I/O."""
-        print(f"Merging {len(parts)} parts...")
+        self.log(f"Merging {len(parts)} parts...")
         
         with open(output_file, 'wb') as out:
             for i, part in enumerate(sorted(parts)):
@@ -154,7 +148,7 @@ class FileSplitter:
                         out.write(chunk)
                 
                 if (i + 1) % 5 == 0 or i == len(parts) - 1:
-                    print(f"  Merged part {i+1}/{len(parts)}")
+                    self.log(f"  Merged part {i+1}/{len(parts)}")
     
     def create_manifest(self, input_file: str, parts_info: List[Tuple[str, str]], 
                        output_path: str) -> None:
@@ -180,43 +174,42 @@ class FileSplitter:
         with open(output_path, 'w') as f:
             json.dump(manifest, f, indent=2)
         
-        print(f"Manifest created: {output_path}")
+        self.log(f"Manifest created: {output_path}")
     
     def verify_from_manifest(self, manifest_path: str, parts_dir: str) -> bool:
         """Verify parts against manifest."""
         with open(manifest_path, 'r') as f:
             manifest = json.load(f)
         
-        print(f"Verifying {manifest['num_parts']} parts against manifest...")
+        self.log(f"Verifying {manifest['num_parts']} parts against manifest...")
         
         for part_info in manifest['parts']:
             part_path = os.path.join(parts_dir, part_info['filename'])
             
             if not os.path.exists(part_path):
-                print(f"  ✗ Part {part_info['index']}: File not found")
+                print(f"  ✗ Part {part_info['index']}: File not found", file=sys.stderr)
                 return False
             
             actual_size = os.path.getsize(part_path)
             if actual_size != part_info['size']:
                 print(f"  ✗ Part {part_info['index']}: Size mismatch "
-                      f"(expected {part_info['size']}, got {actual_size})")
+                      f"(expected {part_info['size']}, got {actual_size})", file=sys.stderr)
                 return False
             
             actual_hash = self.compute_hash(part_path)
             if actual_hash != part_info['hash']:
-                print(f"  ✗ Part {part_info['index']}: Hash mismatch")
+                print(f"  ✗ Part {part_info['index']}: Hash mismatch", file=sys.stderr)
                 return False
             
-            print(f"  ✓ Part {part_info['index']}: Valid")
+            self.log(f"  ✓ Part {part_info['index']}: Valid")
         
-        print("All parts verified successfully!")
+        self.log("All parts verified successfully!")
         return True
 
 def split_mode(args):
     """Handle split operation."""
-    splitter = FileSplitter(args.algorithm)
+    splitter = FileSplitter(args.algorithm, args.quiet)
     
-    # Better output directory naming
     if args.output_dir:
         output_dir = args.output_dir
     else:
@@ -232,17 +225,28 @@ def split_mode(args):
     manifest_path = os.path.join(output_dir, "manifest.json")
     splitter.create_manifest(args.input_file, parts_info, manifest_path)
     
-    print(f"\nSplit complete! Parts saved to: {output_dir}")
-    print(f"Total parts: {len(parts_info)}")
+    if args.json:
+        print(json.dumps({
+            'status': 'success',
+            'parts_directory': output_dir,
+            'total_parts': len(parts_info),
+            'manifest': manifest_path
+        }))
+    else:
+        splitter.log(f"\nSplit complete! Parts saved to: {output_dir}")
+        splitter.log(f"Total parts: {len(parts_info)}")
 
 def merge_mode(args):
     """Handle merge operation."""
-    splitter = FileSplitter(args.algorithm)
+    splitter = FileSplitter(args.algorithm, args.quiet)
     manifest_path = os.path.join(args.parts_dir, "manifest.json")
     
     if os.path.exists(manifest_path):
         if not splitter.verify_from_manifest(manifest_path, args.parts_dir):
-            print("\nError: Part verification failed. Aborting merge.")
+            if args.json:
+                print(json.dumps({'status': 'failed', 'error': 'Part verification failed'}))
+            else:
+                print("\nError: Part verification failed. Aborting merge.", file=sys.stderr)
             sys.exit(1)
         
         with open(manifest_path, 'r') as f:
@@ -251,8 +255,7 @@ def merge_mode(args):
         parts = [os.path.join(args.parts_dir, p['filename']) for p in manifest['parts']]
         output_file = args.output_file or manifest['original_file']
     else:
-        print("Warning: No manifest found, merging all .partXXX files in order")
-        import re
+        splitter.log("Warning: No manifest found, merging all .partXXX files in order")
         part_pattern = re.compile(r'\.part\d{3}$')
         parts = sorted([
             os.path.join(args.parts_dir, f) 
@@ -261,34 +264,50 @@ def merge_mode(args):
         ])
         
         if not parts:
-            print("Error: No part files found in directory")
+            if args.json:
+                print(json.dumps({'status': 'failed', 'error': 'No part files found'}))
+            else:
+                print("Error: No part files found in directory", file=sys.stderr)
             sys.exit(1)
         
         output_file = args.output_file or "merged_file"
     
     splitter.merge_files(parts, output_file)
     
+    verification_passed = False
     if os.path.exists(manifest_path):
         with open(manifest_path, 'r') as f:
             manifest = json.load(f)
         merged_hash = splitter.compute_hash(output_file)
-        print(f"\nOriginal hash: {manifest['original_hash']}")
-        print(f"Merged hash:   {merged_hash}")
-        if merged_hash == manifest['original_hash']:
-            print("✓ Verification passed: Files are bit-for-bit identical!")
+        
+        if args.json:
+            verification_passed = merged_hash == manifest['original_hash']
         else:
-            print("✗ Verification failed: Hashes do not match!")
-            sys.exit(1)
+            splitter.log(f"\nOriginal hash: {manifest['original_hash']}")
+            splitter.log(f"Merged hash:   {merged_hash}")
+            if merged_hash == manifest['original_hash']:
+                splitter.log("✓ Verification passed: Files are bit-for-bit identical!")
+                verification_passed = True
+            else:
+                print("✗ Verification failed: Hashes do not match!", file=sys.stderr)
+                sys.exit(1)
     
-    print(f"\nMerged file: {output_file}")
+    if args.json:
+        print(json.dumps({
+            'status': 'success',
+            'output_file': output_file,
+            'verification_passed': verification_passed
+        }))
+    else:
+        splitter.log(f"\nMerged file: {output_file}")
 
 def verify_mode(args):
     """Handle verification operation."""
-    splitter = FileSplitter(args.algorithm)
+    splitter = FileSplitter(args.algorithm, args.quiet)
     temp_dir = tempfile.mkdtemp()
     try:
         original_hash = splitter.compute_hash(args.input_file)
-        print(f"Original hash ({args.algorithm}): {original_hash}")
+        splitter.log(f"Original hash ({args.algorithm}): {original_hash}")
         
         num_parts = args.num_parts
         max_part_size = args.max_part_size_mb * 1024 * 1024 if args.max_part_size_mb else None
@@ -298,13 +317,22 @@ def verify_mode(args):
         splitter.merge_files([p[0] for p in parts_info], merged_file)
         
         merged_hash = splitter.compute_hash(merged_file)
-        print(f"Merged hash ({args.algorithm}):   {merged_hash}")
         
-        if original_hash == merged_hash:
-            print("\n✓ Verification passed: Split-merge cycle preserves data integrity!")
+        if args.json:
+            verification_passed = original_hash == merged_hash
+            print(json.dumps({
+                'status': 'success' if verification_passed else 'failed',
+                'original_hash': original_hash,
+                'merged_hash': merged_hash,
+                'verification_passed': verification_passed
+            }))
         else:
-            print("\n✗ Verification failed: Hashes do not match!")
-            sys.exit(1)
+            splitter.log(f"Merged hash ({args.algorithm}):   {merged_hash}")
+            if original_hash == merged_hash:
+                splitter.log("\n✓ Verification passed: Split-merge cycle preserves data integrity!")
+            else:
+                print("\n✗ Verification failed: Hashes do not match!", file=sys.stderr)
+                sys.exit(1)
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -337,6 +365,8 @@ Version: """ + __version__
     sp.add_argument('-a', '--algorithm', default='sha256', 
                    choices=['md5', 'sha1', 'sha256', 'sha512'],
                    help='Hash algorithm (default: sha256)')
+    sp.add_argument('-q', '--quiet', action='store_true', help='Suppress progress output')
+    sp.add_argument('--json', action='store_true', help='Output results as JSON')
     
     # Merge mode
     mp = subparsers.add_parser('merge', help='Merge parts back into file')
@@ -345,6 +375,8 @@ Version: """ + __version__
     mp.add_argument('-a', '--algorithm', default='sha256',
                    choices=['md5', 'sha1', 'sha256', 'sha512'],
                    help='Hash algorithm (default: sha256)')
+    mp.add_argument('-q', '--quiet', action='store_true', help='Suppress progress output')
+    mp.add_argument('--json', action='store_true', help='Output results as JSON')
     
     # Verify mode
     vp = subparsers.add_parser('verify', help='Test split-merge integrity')
@@ -354,6 +386,8 @@ Version: """ + __version__
     vp.add_argument('-a', '--algorithm', default='sha256',
                    choices=['md5', 'sha1', 'sha256', 'sha512'],
                    help='Hash algorithm (default: sha256)')
+    vp.add_argument('-q', '--quiet', action='store_true', help='Suppress progress output')
+    vp.add_argument('--json', action='store_true', help='Output results as JSON')
     
     args = parser.parse_args()
     
@@ -375,10 +409,13 @@ Version: """ + __version__
                 parser.error(f"Input file not found: {args.input_file}")
             verify_mode(args)
     except KeyboardInterrupt:
-        print("\n\nOperation cancelled by user")
+        print("\n\nOperation cancelled by user", file=sys.stderr)
         sys.exit(130)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        if hasattr(args, 'json') and args.json:
+            print(json.dumps({'status': 'failed', 'error': str(e)}))
+        else:
+            print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":
