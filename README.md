@@ -1,214 +1,205 @@
 # Advanced File Splitter
 
-A robust command-line utility for splitting large files into manageable parts with cryptographic verification and bit-perfect integrity checking.
+Split large files into manageable parts with cryptographic verification and bit-perfect integrity checking.
 
-## Features
+## Quick Start
 
-- **Flexible Splitting Strategies**: Split by part count or maximum part size
-- **Cryptographic Verification**: SHA-256, SHA-512, SHA-1, and MD5 hash support
-- **Manifest System**: JSON metadata tracking for reliable reconstruction
-- **Individual Part Verification**: Each part is hashed during creation
-- **Memory Efficient**: Chunked I/O for handling files of any size
-- **Bit-Perfect Integrity**: Guarantees exact reconstruction of original files
+```bash
+# Split file into 24 parts (default)
+advanced-file-splitter split video.mp4
+
+# Merge parts back together
+advanced-file-splitter merge video.mp4_parts
+
+# Test integrity
+advanced-file-splitter verify video.mp4
+```
 
 ## Installation
 
-### Using Nix Flakes
-
+### Nix Flakes
 ```bash
 nix profile install github:yourusername/advanced-file-splitter
 ```
 
-### From Source
-
-```bash
-git clone https://github.com/yourusername/advanced-file-splitter
-cd advanced-file-splitter
-nix build
-./result/bin/advanced-file-splitter --version
-```
-
-### Traditional Installation
-
+### Manual
 ```bash
 chmod +x advanced-file-splitter
 sudo cp advanced-file-splitter /usr/local/bin/
 ```
 
-## Quick Start
+## Usage Guide
+
+### Split Files
 
 ```bash
-# Split a file into 24 parts (default)
-advanced-file-splitter split largefile.zip
-
-# Merge parts back together
-advanced-file-splitter merge largefile.zip_parts
-
-# Verify split-merge integrity
-advanced-file-splitter verify largefile.zip
+advanced-file-splitter split [OPTIONS] FILE
 ```
 
-## Usage
-
-### Split Mode
-
-Split a file into multiple parts with various options.
-
-```bash
-advanced-file-splitter split [OPTIONS] INPUT_FILE
-```
-
-**Options:**
-- `-o, --output-dir DIR` - Output directory for parts (default: INPUT_FILE_parts)
-- `-n, --num-parts N` - Number of parts to create
-- `-s, --max-part-size-mb MB` - Maximum size per part in megabytes
-- `-a, --algorithm ALGO` - Hash algorithm: md5, sha1, sha256 (default), sha512
+**Common Options:**
+- `-n NUM` - Split into NUM parts (e.g., `-n 12`)
+- `-s MB` - Maximum MB per part (e.g., `-s 50`)
+- `-o DIR` - Output directory
+- `--json` - Output results as JSON (for AI/scripts)
+- `-q` - Quiet mode (suppress progress)
 
 **Examples:**
-
 ```bash
 # Split into 12 equal parts
 advanced-file-splitter split database.sql -n 12
 
-# Split with maximum 50MB per part
+# Split with max 50MB per part
 advanced-file-splitter split video.mp4 -s 50
 
-# Split to custom directory with SHA-512
-advanced-file-splitter split archive.tar.gz -o /backup/parts -a sha512
+# Custom output directory
+advanced-file-splitter split archive.tar.gz -o /backup/parts
+
+# AI/script usage with JSON output
+advanced-file-splitter split data.zip -n 10 --json -q
 ```
 
-### Merge Mode
-
-Reconstruct the original file from parts with automatic verification.
+### Merge Parts
 
 ```bash
 advanced-file-splitter merge [OPTIONS] PARTS_DIR
 ```
 
 **Options:**
-- `-o, --output-file FILE` - Output file name (default: from manifest)
-- `-a, --algorithm ALGO` - Hash algorithm for verification
+- `-o FILE` - Output filename
+- `--json` - JSON output
+- `-q` - Quiet mode
 
 **Examples:**
-
 ```bash
-# Merge with automatic verification
+# Auto-verify from manifest
 advanced-file-splitter merge database.sql_parts
 
-# Merge to specific output file
+# Specify output file
 advanced-file-splitter merge backup_parts -o restored.zip
+
+# Script usage
+advanced-file-splitter merge data_parts --json -q
 ```
 
-### Verify Mode
-
-Test the integrity of split-merge operations without keeping intermediate files.
+### Verify Integrity
 
 ```bash
-advanced-file-splitter verify [OPTIONS] INPUT_FILE
+advanced-file-splitter verify [OPTIONS] FILE
 ```
 
-**Options:**
-- `-n, --num-parts N` - Number of parts for testing
-- `-s, --max-part-size-mb MB` - Maximum part size for testing
-- `-a, --algorithm ALGO` - Hash algorithm to use
-
-**Examples:**
-
-```bash
-# Verify default split-merge cycle
-advanced-file-splitter verify important.dat
-
-# Verify with specific part count
-advanced-file-splitter verify backup.tar -n 8
-```
+Tests split-merge cycle without keeping intermediate files.
 
 ## Use Cases
 
-### Email Attachment Distribution
-
-Many email servers limit attachment sizes to 25MB. Split large files for email distribution.
-
+### 1. Email Attachments (25MB limit)
 ```bash
-# Split presentation into email-friendly parts
+# Split for email
 advanced-file-splitter split presentation.pptx -s 24
 
-# Recipient merges the parts
+# Send all .part files + manifest.json as attachments
+# Recipient runs:
 advanced-file-splitter merge presentation.pptx_parts
 ```
 
-### Cloud Storage Upload
-
-Improve reliability of large uploads by splitting into smaller chunks that can be retried independently.
-
+### 2. Cloud Storage Upload
 ```bash
-# Split 5GB backup into 50MB parts
-advanced-file-splitter split backup-2025.tar.gz -s 50 -o cloud-upload/
+# Split into 50MB chunks for reliable uploads
+advanced-file-splitter split backup-2025.tar.gz -s 50 -o cloud-sync/
 
-# After upload, verify integrity on target system
-advanced-file-splitter merge cloud-upload/ -o backup-2025.tar.gz
+# Upload completes via cloud sync
+# On target system:
+advanced-file-splitter merge cloud-sync/ -o backup-2025.tar.gz
 ```
 
-### Network Transfer with Integrity Checking
-
-Transfer files across unreliable networks with built-in verification.
-
+### 3. Network Transfer
 ```bash
-# On source system
+# Source system
 advanced-file-splitter split firmware.bin -n 10 -o transfer/
 
-# Transfer parts individually via rsync, scp, or sftp
+# Transfer parts individually
 rsync -avz transfer/ remote:/destination/
 
-# On destination system
+# Destination system - auto-verifies
 advanced-file-splitter merge /destination/transfer/
 ```
 
-### Archival Storage
-
-Split large archives for storage on media with size constraints (DVD, USB drives).
-
+### 4. Removable Media (DVD/USB)
 ```bash
-# Split 100GB archive for 25GB flash drives
-advanced-file-splitter split photo-archive.tar -s 24000 -o usb-parts/
+# Split for 25GB USB drives
+advanced-file-splitter split archive.tar -s 24000 -o usb-parts/
 
-# Later reconstruction
-advanced-file-splitter merge usb-parts/ -o photo-archive.tar
+# Copy to USB, later reconstruct
+advanced-file-splitter merge usb-parts/ -o archive.tar
 ```
 
-### Database Backup Distribution
-
-Distribute large database dumps across multiple storage locations.
-
+### 5. Database Backups
 ```bash
-# Split production database backup
-advanced-file-splitter split prod-db-2025-01.sql -n 20 -o backups/
+# Split database dump
+advanced-file-splitter split prod-db.sql -n 20 -o backups/
 
-# Verify parts before archival
+# Verify before archival
 advanced-file-splitter merge backups/ -o test-restore.sql
-diff prod-db-2025-01.sql test-restore.sql && echo "Backup verified"
+diff prod-db.sql test-restore.sql && echo "Verified"
 ```
 
-### Software Distribution
-
-Package large software releases into downloadable parts.
-
+### 6. Software Distribution
 ```bash
-# Split software package
+# Split for download
 advanced-file-splitter split software-v2.0.iso -s 100 -o downloads/
 
-# Users download all parts, then merge
+# Users download all parts then merge
 advanced-file-splitter merge downloads/
 ```
 
-## Manifest Format
+## AI Integration
 
-Each split operation creates a `manifest.json` file containing:
+The tool provides JSON output and predictable behavior for automation.
 
+### Python Integration
+```python
+import subprocess
+import json
+
+def split_file(file_path, num_parts=24):
+    """Split file and return manifest data."""
+    result = subprocess.run(
+        ["advanced-file-splitter", "split", file_path, 
+         "-n", str(num_parts), "--json", "-q"],
+        capture_output=True, text=True
+    )
+    
+    if result.returncode == 0:
+        return json.loads(result.stdout)
+    else:
+        raise Exception(result.stderr)
+
+def merge_file(parts_dir):
+    """Merge parts with verification."""
+    result = subprocess.run(
+        ["advanced-file-splitter", "merge", parts_dir, "--json", "-q"],
+        capture_output=True, text=True
+    )
+    
+    if result.returncode == 0:
+        data = json.loads(result.stdout)
+        return data['output_file'], data['verification_passed']
+    else:
+        raise Exception(result.stderr)
+
+# Usage
+info = split_file("large-file.zip", num_parts=12)
+print(f"Created {info['total_parts']} parts in {info['parts_directory']}")
+
+output, verified = merge_file(info['parts_directory'])
+print(f"Merged to {output}, verified: {verified}")
+```
+
+### Manifest Structure
 ```json
 {
   "original_file": "example.zip",
   "original_size": 524288000,
-  "original_hash": "a3f8...",
+  "original_hash": "a3f8b4e9...",
   "hash_algorithm": "sha256",
   "num_parts": 24,
   "version": "1.0.0",
@@ -217,76 +208,60 @@ Each split operation creates a `manifest.json` file containing:
       "index": 0,
       "filename": "example.zip.part000",
       "size": 21845334,
-      "hash": "b4e9..."
+      "hash": "c7d2f8a1..."
     }
   ]
 }
 ```
 
-This manifest enables:
-- Verification of individual parts before merging
-- Recovery information if parts are corrupted
-- Automated reconstruction on any system
+### Decision Logic
+```
+Need to handle large file?
+├─ Email (25MB limit) → -s 24
+├─ Cloud upload → -s 50
+├─ Network transfer → -n 10 to 20
+├─ DVD/USB media → -s based on capacity
+├─ Test integrity → use verify mode
+└─ Distribute software → -s 100 to 500
+```
 
-## Performance Considerations
+## Features
 
-- **Memory Usage**: Constant 4MB buffer regardless of file size
-- **Hash Computation**: Optimized for large files with chunked reading
-- **Disk I/O**: Sequential read/write operations for maximum throughput
-- **Part Size**: Smaller parts increase overhead; larger parts reduce parallelism
+- Split by part count or max size
+- SHA-256/512, SHA-1, MD5 hash support
+- JSON manifest with metadata
+- Individual part verification
+- Memory efficient (4MB buffer)
+- Bit-perfect reconstruction
+- Cross-platform compatible
 
-Recommended part sizes:
-- Local operations: 100-500MB parts
-- Network transfer: 25-50MB parts
-- Email/web upload: 10-25MB parts
+## Performance
 
-## Error Handling
+**Memory:** Constant 4MB regardless of file size  
+**Disk I/O:** Sequential operations for maximum throughput
 
-The utility performs comprehensive validation:
+**Recommended Part Sizes:**
+- Local: 100-500MB
+- Network: 25-50MB  
+- Email/Upload: 10-25MB
 
-- File existence and accessibility checks
-- Part integrity verification before merge
-- Hash mismatch detection with clear error messages
-- Incomplete part detection during merge operations
+## Exit Codes
 
-All errors return appropriate exit codes:
-- `0`: Success
-- `1`: Error (with descriptive message)
-- `130`: User cancellation (Ctrl+C)
+- `0` - Success
+- `1` - Error (check stderr)
+- `130` - User cancelled (Ctrl+C)
 
-## Security Considerations
+## Security
 
-- Hash algorithms provide integrity verification, not encryption
-- Manifest files are plain JSON and should be protected accordingly
-- Part files contain unencrypted data from the original file
-- For sensitive data, encrypt before splitting or encrypt individual parts
+- Hashes verify integrity, not confidentiality
+- Manifest and parts are unencrypted
+- Encrypt sensitive data before splitting
 
 ## License
 
-LGPL-3.0-or-later
-
+LGPL-3.0-or-later  
 Copyright (c) 2025 DeMoD LLC
-
-This library is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.
-
-## Contributing
-
-Contributions are welcome. Please ensure:
-- Code follows existing style conventions
-- All tests pass before submitting
-- Documentation is updated for new features
-- Commit messages are clear and descriptive
 
 ## Support
 
-For issues, questions, or feature requests, please open an issue on the project repository.
-
-## Changelog
-
-### Version 1.0.0
-- Initial release
-- Support for flexible part sizing
-- Manifest-based verification system
-- Three operation modes: split, merge, verify
-- Multiple hash algorithm support
-- Cross-platform compatibility
+Open issues at: github.com/yourusername/advanced-file-splitter
